@@ -1,0 +1,18 @@
+{
+  "name": "shopmate-ai-root",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ShopMate AI Capstone Project",
+  "scripts": {
+    "dev": "npm --prefix frontend run dev",
+    "start": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend run build",
+    "preview": "npm --prefix frontend run preview",
+    "backend": "python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000 --reload",
+    "test:backend": "python -u backend/tests/run_tests.py"
+  },
+  "workspaces": [
+    "frontend"
+  ]
+}
+

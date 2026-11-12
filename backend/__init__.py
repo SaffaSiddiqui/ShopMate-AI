@@ -1,0 +1,2 @@
+# ShopMate AI Backend Package
+
