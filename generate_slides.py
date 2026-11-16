@@ -8,7 +8,7 @@ from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN
 from pptx.enum.shapes import MSO_SHAPE
 
-def create_presentation():
+def create_presentation(output_path=None):
     prs = Presentation()
     # 16:9 widescreen dimensions
     prs.slide_width = Inches(13.333)
@@ -440,7 +440,8 @@ def create_presentation():
             pp.space_before = Pt(12)
 
     # Save presentation
-    output_path = "c:\\Users\\Lenovo\\Desktop\\final project\\ShopMate_AI_Presentation.pptx"
+    if output_path is None:
+        output_path = "ShopMate_AI_Presentation.pptx"
     prs.save(output_path)
     print(f"Presentation saved successfully to: {output_path}")
 
