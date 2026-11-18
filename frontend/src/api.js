@@ -148,5 +148,11 @@ export const api = {
       body: JSON.stringify({ message }),
     }),
 
+  guideChat: (message) =>
+    request('/agent/guide', {
+      method: 'POST',
+      body: JSON.stringify({ message }),
+    }),
+
   getAgentRecommendations: () => request('/agent/recommendations'),
 }

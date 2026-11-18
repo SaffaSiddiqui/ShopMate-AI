@@ -1,0 +1,80 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Install ShopMate frontend dependencies",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"install"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "ShopMate FastAPI server",
+			"type": "shell",
+			"command": "C:/Users/hp/AppData/Local/Programs/Python/Python313/python.exe",
+			"args": [
+				"-m",
+				"uvicorn",
+				"backend.main:app",
+				"--host",
+				"127.0.0.1",
+				"--port",
+				"8000",
+				"--reload"
+			],
+			"isBackground": true,
+			"problemMatcher": [
+				"$python"
+			]
+		},
+		{
+			"label": "ShopMate Vite frontend",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"run",
+				"dev"
+			],
+			"isBackground": true,
+			"problemMatcher": [
+				"$tsc"
+			]
+		},
+		{
+			"label": "Verify ShopMate local services",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"-e",
+				"(async()=>{for(const u of ['http://localhost:5173/','http://127.0.0.1:8000/','http://127.0.0.1:8000/api/health','http://127.0.0.1:8000/api/products','http://127.0.0.1:8000/docs']){try{const r=await fetch(u);const t=await r.text();console.log(`${r.status} ${u} (${t.length} bytes) ${t.slice(0,240).replace(/\\s+/g,' ')}`);if(!r.ok)process.exitCode=1}catch(e){console.error(`FAIL ${u}: ${e.message}`);process.exitCode=1}}})()"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Verify ShopMate services",
+			"type": "shell",
+			"command": "cmd.exe",
+			"args": [
+				"/c",
+				"curl.exe -sS -o NUL -w \"frontend:%{http_code} %{size_download} bytes\\n\" http://localhost:5173/ && curl.exe -sS -o NUL -w \"api-root:%{http_code} %{size_download} bytes\\n\" http://127.0.0.1:8000/ && curl.exe -sS -o NUL -w \"health:%{http_code} %{size_download} bytes\\n\" http://127.0.0.1:8000/api/health && curl.exe -sS -o NUL -w \"products:%{http_code} %{size_download} bytes\\n\" http://127.0.0.1:8000/api/products && curl.exe -sS -o NUL -w \"docs:%{http_code} %{size_download} bytes\\n\" http://127.0.0.1:8000/docs"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Confirm ShopMate HTTP status",
+			"type": "shell",
+			"command": "cmd.exe",
+			"args": [
+				"/c",
+				"curl.exe -f -sS -o NUL http://localhost:5173/ && echo frontend 200 && curl.exe -f -sS -o NUL http://127.0.0.1:8000/ && echo API-root 200 && curl.exe -f -sS -o NUL http://127.0.0.1:8000/api/health && echo health 200 && curl.exe -f -sS -o NUL http://127.0.0.1:8000/api/products && echo products 200 && curl.exe -f -sS -o NUL http://127.0.0.1:8000/docs && echo docs 200"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		}
+	]
+}

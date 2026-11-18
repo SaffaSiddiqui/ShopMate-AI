@@ -16,6 +16,12 @@ def chat_with_agent(request: AgentQueryRequest):
     return ShopMateAgent.answer_query(request.message)
 
 
+@router.post("/guide", response_model=AgentQueryResponse)
+def guide_web_query(request: AgentQueryRequest):
+    """Ask the Web Guide AI how to navigate and use the ShopMate AI website."""
+    return ShopMateAgent.answer_web_guide_query(request.message)
+
+
 @router.get("/recommendations", response_model=List[AgentRecommendation])
 def get_recommendations():
     """Retrieve proactive, automated business recommendations from the AI agent."""

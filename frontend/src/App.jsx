@@ -27,6 +27,7 @@ import {
 import Sidebar from './components/Sidebar.jsx'
 import Topbar from './components/Topbar.jsx'
 import MetricCard from './components/MetricCard.jsx'
+import GuideChatbot from './components/GuideChatbot.jsx'
 import { customers as initialCustomers, orders as initialOrders, products as initialProducts, salesData as initialSalesData } from './data.js'
 import { api } from './api.js'
 
@@ -110,10 +111,10 @@ function Dashboard({ onNavigate, onAddProduct, range, setRange, query, orders, p
       </div>
 
       <div className="metrics-grid">
-        <MetricCard label="Total sales" value={money(chartTotal)} change="+12.8%" tone="up" helper="vs last week" icon={Wallet} />
-        <MetricCard label="Total orders" value={orders.length} change="+8.2%" tone="up" helper="across all items" icon={ShoppingBag} />
-        <MetricCard label="Total products" value={products.length} change="+8.3%" tone="up" helper="in store catalogue" icon={Package} />
-        <MetricCard label="Low stock alerts" value={lowStockCount} tone={lowStockCount ? 'down' : 'neutral'} helper={lowStockCount ? 'need restocking' : 'shelves healthy'} icon={Boxes} />
+        <MetricCard title="Total sales" label="Total sales" value={money(chartTotal)} change="+12.8%" tone="up" note="vs last week" helper="vs last week" icon={Wallet} />
+        <MetricCard title="Total orders" label="Total orders" value={orders.length} change="+8.2%" tone="up" note="across all items" helper="across all items" icon={ShoppingBag} />
+        <MetricCard title="Total products" label="Total products" value={products.length} change="+8.3%" tone="up" note="in store catalogue" helper="in store catalogue" icon={Package} />
+        <MetricCard title="Low stock alerts" label="Low stock alerts" value={lowStockCount} tone={lowStockCount ? 'down' : 'neutral'} note={lowStockCount ? 'need restocking' : 'shelves healthy'} helper={lowStockCount ? 'need restocking' : 'shelves healthy'} icon={Boxes} />
       </div>
 
       <div className="dashboard-grid">
@@ -310,7 +311,7 @@ function MiniMetric({ icon: Icon, label, value, tone = 'blue' }) {
 
 const suggestedPrompts = ['How can I improve sales this week?', 'Which products should I restock?', 'Summarize my store performance']
 
-function AssistantPage({ products, orders, backendConnected, salesTrend }) {
+function AssistantPage({ products, orders, customers = [], backendConnected, salesTrend }) {
   const [message, setMessage] = useState('')
   const [messages, setMessages] = useState([])
   const [thinking, setThinking] = useState(false)
@@ -321,35 +322,47 @@ function AssistantPage({ products, orders, backendConnected, salesTrend }) {
     setMessage('')
     setThinking(true)
 
-    // Optimistically add user question
+    // Optimistically add user question with thinking placeholder
     const question = trimmed
-    setMessages((current) => [...current, { question, answer: '✦ ShopMate AI is analyzing your store...' }])
+    setMessages((current) => [...current, { question, answer: '✦ ShopMate AI is analyzing your store...', isThinking: true }])
 
     try {
       // Call backend AI agent endpoint
       const response = await api.chatWithAgent(trimmed)
-      setMessages((current) =>
-        current.map((item, idx) =>
-          idx === current.length - 1 ? { question, answer: response.reply } : item
+      if (response && response.reply) {
+        setMessages((current) =>
+          current.map((item, idx) =>
+            idx === current.length - 1 ? { question, answer: response.reply, isThinking: false } : item
+          )
         )
-      )
+      } else {
+        throw new Error('No reply from agent')
+      }
     } catch {
-      // Graceful local fallback if backend is offline
+      // Graceful local fallback using actual store data if backend is offline or errors
       let response = 'A good next step is to review your best-selling products, reach out to returning customers, and keep an eye on your weekly sales trend.'
-      if (/stock|restock|inventory/i.test(trimmed)) {
+      if (/stock|restock|inventory|shortage/i.test(trimmed)) {
         const low = products.filter((product) => product.stock < 10).map((product) => `${product.name} (${product.stock} left)`)
-        response = low.length ? `I found ${low.length} product${low.length === 1 ? '' : 's'} running low: ${low.join(' and ')}. Consider restocking these soon to avoid missing sales.` : 'Your current products are looking well stocked. Keep checking inventory as new orders come in.'
-      } else if (/sales|performance|week/i.test(trimmed)) {
+        response = low.length ? `I found ${low.length} product${low.length === 1 ? '' : 's'} running low on stock: ${low.join(', ')}. Consider restocking these soon to avoid missing sales.` : 'Your current products are looking well stocked above 10 units. Keep checking inventory as new orders come in.'
+      } else if (/sales|revenue|performance|week|growth|earning|money/i.test(trimmed)) {
         const rows = salesTrend ?? initialSalesData
         const totalSales = rows.reduce((total, row) => total + row.sales, 0)
         const peakDay = rows.reduce((peak, row) => row.sales > peak.sales ? row : peak)
         response = `Your store recorded ${money(totalSales)} in sales this period. ${peakDay.day} was your strongest day at ${money(peakDay.sales)}. You have ${orders.filter((order) => order.status === 'Processing').length} orders currently being processed.`
-      } else if (/customer/i.test(trimmed)) {
-        response = 'Repeat customers make up an estimated 68% of your store visits. Consider a friendly WhatsApp follow-up or a small loyalty offer for your regular shoppers.'
+      } else if (/order|fulfillment|processing|shipped|deliver/i.test(trimmed)) {
+        const proc = orders.filter((o) => o.status === 'Processing').length
+        const deliv = orders.filter((o) => o.status === 'Delivered').length
+        response = `You have ${orders.length} total orders: ${deliv} delivered and ${proc} currently processing. Fulfilling pending orders quickly boosts repeat business.`
+      } else if (/customer|buyer|shopper|loyalty|client/i.test(trimmed)) {
+        const topCust = [...customers].sort((a, b) => (b.spent || 0) - (a.spent || 0))[0]
+        response = `You have ${customers.length} registered customers. ${topCust ? `Your top customer is ${topCust.name} (${money(topCust.spent)} spent, ${topCust.orders} orders). ` : ''}Repeat customers account for approximately 68% of your store visits. Consider a friendly WhatsApp follow-up.`
+      } else if (/product|catalog|item|sku|best seller|top/i.test(trimmed)) {
+        const best = [...products].sort((a, b) => (b.sold || 0) - (a.sold || 0))[0]
+        response = `Your store catalogue has ${products.length} products. ${best ? `Your top-selling product is ${best.name} with ${best.sold} units sold.` : ''} Keep high-demand SKUs well-stocked.`
       }
       setMessages((current) =>
         current.map((item, idx) =>
-          idx === current.length - 1 ? { question, answer: response } : item
+          idx === current.length - 1 ? { question, answer: response, isThinking: false } : item
         )
       )
     } finally {
@@ -361,10 +374,10 @@ function AssistantPage({ products, orders, backendConnected, salesTrend }) {
     <div className="page-title-row"><div><div className="eyebrow"><span className="live-dot" /> YOUR BUSINESS PARTNER</div><h1>AI Assistant</h1><p>Ask a question about your store and get real-time recommendations.</p></div><span className="ai-ready"><span className="live-dot" /> {backendConnected ? 'Connected to Backend Agent' : 'Local demo assistant'}</span></div>
     <section className="panel chat-panel">
       <div className="chat-welcome"><div className="chat-bot-icon"><Sparkles size={22} /></div><div><h2>Hi Muhammad, how can I help?</h2><p>I analyze your live inventory, order fulfillment, and sales metrics to give you actionable advice.</p></div></div>
-      <div className="prompt-grid">{suggestedPrompts.map((prompt) => <button key={prompt} onClick={() => ask(prompt)}>{prompt}<ArrowUpRight size={15} /></button>)}</div>
-      <div className="chat-messages">{messages.map((item, index) => <div className="chat-pair" key={`${index}-${item.question}`}><div className="user-message">{item.question}</div><div className="ai-message"><span className="chat-mini-icon"><Sparkles size={14} /></span><p>{item.answer}</p></div></div>)}</div>
-      <form className="chat-input-row" onSubmit={(event) => { event.preventDefault(); ask(message) }}><input value={message} onChange={(event) => setMessage(event.target.value)} placeholder="Ask anything about your business..." aria-label="Message your AI assistant" disabled={thinking} /><button className="send-button" type="submit" disabled={!message.trim() || thinking} aria-label="Send message"><Send size={17} /></button></form>
-      <p className="chat-disclaimer"><Sparkles size={12} /> {backendConnected ? 'Powered by ShopMate AI live backend intelligence.' : 'Using sample data; start the backend for live store insights.'}</p>
+      <div className="prompt-grid">{suggestedPrompts.map((prompt) => <button key={prompt} onClick={() => ask(prompt)} disabled={thinking}>{prompt}<ArrowUpRight size={15} /></button>)}</div>
+      <div className="chat-messages">{messages.map((item, index) => <div className="chat-pair" key={`${index}-${item.question}`}><div className="user-message">{item.question}</div><div className={`ai-message ${item.isThinking ? 'ai-thinking' : ''}`}><span className="chat-mini-icon"><Sparkles size={14} /></span><p>{item.answer}</p></div></div>)}</div>
+      <form className="chat-input-row" onSubmit={(event) => { event.preventDefault(); ask(message) }}><input value={message} onChange={(event) => setMessage(event.target.value)} placeholder={thinking ? "ShopMate AI is thinking..." : "Ask anything about your business..."} aria-label="Message your AI assistant" disabled={thinking} /><button className="send-button" type="submit" disabled={!message.trim() || thinking} aria-label="Send message">{thinking ? <Sparkles size={16} /> : <Send size={17} />}</button></form>
+      <p className="chat-disclaimer"><Sparkles size={12} /> {backendConnected ? 'Powered by Google Gemini AI & ShopMate live backend intelligence.' : 'Using sample data; start the backend for live store insights.'}</p>
     </section>
   </div>
 }
@@ -579,7 +592,7 @@ export default function App() {
     if (page === 'Inventory') return <InventoryPage products={products} onRestock={handleRestock} />
     if (page === 'Customers') return <CustomersPage query={search} customers={customers} />
     if (page === 'Analytics') return <AnalyticsPage range={range} setRange={setRange} products={products} salesTrend={salesTrend} />
-    if (page === 'AI Assistant') return <AssistantPage products={products} orders={orders} backendConnected={backendConnected} salesTrend={salesTrend} />
+    if (page === 'AI Assistant') return <AssistantPage products={products} orders={orders} customers={customers} backendConnected={backendConnected} salesTrend={salesTrend} />
     return <GenericPage page={page} onNavigate={setActivePage} />
   }, [page, search, range, orders, products, customers, backendConnected, salesTrend])
 
@@ -592,7 +605,7 @@ export default function App() {
         {content}
       </div>
       <footer className="app-footer">
-        <span>© 2024 ShopMate AI</span>
+        <span>© {new Date().getFullYear()} ShopMate AI</span>
         <span>
           {backendConnected ? (
             <span style={{ color: '#16a34a', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
@@ -607,5 +620,6 @@ export default function App() {
     </main>
     {modal === 'product' && <ProductModal onClose={() => setModal('')} onSave={addProduct} />}
     {modal === 'order' && <CreateOrderModal onClose={() => setModal('')} onSave={createOrder} products={products} />}
+    <GuideChatbot onNavigate={setActivePage} activePage={activePage} />
   </div>
 }
